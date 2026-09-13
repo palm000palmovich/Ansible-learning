@@ -1,0 +1,21 @@
+---
+services:
+  almalinux9:
+    container_name: almalinux9
+    image: almalinux:9
+    command: sleep infinity
+    init: true
+
+  ubuntu:
+    container_name: ubuntu
+    build:
+      context: .
+      dockerfile: Dockerfile.ubuntu
+    init: true
+
+  fedora42:
+    container_name: fedora42
+    build:
+      context: .
+      dockerfile: Dockerfile.fedora
+    init: true
