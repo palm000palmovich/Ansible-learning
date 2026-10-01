@@ -92,3 +92,6 @@
 
 Снова набрал команду `ansible-playbook site.yml --diff --limit lighthouse`, на скрине видна строка `changed=0 ` 
 => идемпотентность работает стабильно.
+
+Ссылка на playbook:
+https://github.com/palm000palmovich/Ansible-learning/blob/master/AnsibleUsing/playbook/site.yml
