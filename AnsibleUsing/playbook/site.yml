@@ -1,84 +1,42 @@
 ---
+- name: Install and configure ClickHouse
+  hosts: clickhouse
+  become: true
+
+  roles:
+    - clickhouse-role
+
+- name: Install and configure Vector
+  hosts: vector
+  become: true
+
+  vars:
+    # Vector ships host metrics into the ClickHouse host from the inventory,
+    # regardless of its current IP (resolved dynamically from hostvars).
+    vector_sinks:
+      clickhouse:
+        type: clickhouse
+        inputs:
+          - host_metrics
+        endpoint: "http://{{ hostvars[groups['clickhouse'][0]].ansible_host }}:{{ clickhouse_http_port | default(8123) }}"
+        database: default
+        table: vector_metrics
+        skip_unknown_fields: true
+
+  roles:
+    - vector-role
+
 - name: Install and configure LightHouse dashboard
   hosts: lighthouse
   become: true
 
+  roles:
+    - lighthouse-role
+
   tasks:
-    - name: Install nginx
-      ansible.builtin.apt:
-        name: nginx
-        state: present
-        update_cache: true
+    - name: Verify LightHouse responds over HTTP
+      ansible.builtin.uri:
+        url: "http://localhost:{{ lighthouse_nginx_port }}/"
+        status_code: 200
       tags:
-        - packages
-
-    - name: Create directory for LightHouse static files
-      ansible.builtin.file:
-        path: "{{ lighthouse_root }}"
-        state: directory
-        owner: www-data
-        group: www-data
-        mode: "0755"
-      tags:
-        - deploy
-
-    - name: Download LightHouse source archive
-      ansible.builtin.get_url:
-        url: "{{ lighthouse_src_url }}"
-        dest: "{{ lighthouse_archive_path }}"
-        mode: "0644"
-      tags:
-        - deploy
-
-    - name: Extract LightHouse static files
-      ansible.builtin.unarchive:
-        src: "{{ lighthouse_archive_path }}"
-        dest: "{{ lighthouse_root }}"
-        remote_src: true
-        extra_opts:
-          - "--strip-components=1"
-        owner: www-data
-        group: www-data
-        creates: "{{ lighthouse_root }}/index.html"
-      tags:
-        - deploy
-
-    - name: Deploy nginx vhost config for LightHouse
-      ansible.builtin.template:
-        src: lighthouse_nginx.conf.j2
-        dest: /etc/nginx/sites-available/lighthouse.conf
-        mode: "0644"
-      notify: Reload nginx
-      tags:
-        - nginx
-
-    - name: Enable LightHouse nginx site
-      ansible.builtin.file:
-        src: /etc/nginx/sites-available/lighthouse.conf
-        dest: /etc/nginx/sites-enabled/lighthouse.conf
-        state: link
-      notify: Reload nginx
-      tags:
-        - nginx
-
-    - name: Disable default nginx site
-      ansible.builtin.file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
-      notify: Reload nginx
-      tags:
-        - nginx
-
-    - name: Ensure nginx is started and enabled
-      ansible.builtin.systemd:
-        name: nginx
-        state: started
-        enabled: true
-      tags:
-        - nginx
-
-  handlers:
-    - name: Reload nginx
-      ansible.builtin.systemd:
-        name: nginx
-        state: reloaded
+        - healthcheck
